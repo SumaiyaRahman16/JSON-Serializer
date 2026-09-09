@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "kAKIP88LyVQ=",
+  "success": true,
+  "projectFilePath": "/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/JsonSerializerLib.csproj",
+  "expectedPackageFiles": [
+    "/Users/sumaiyarahman/.nuget/packages/microsoft.netcore.app.ref/8.0.26/microsoft.netcore.app.ref.8.0.26.nupkg.sha512",
+    "/Users/sumaiyarahman/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.26/microsoft.aspnetcore.app.ref.8.0.26.nupkg.sha512"
+  ],
+  "logs": []
+}

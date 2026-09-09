@@ -1,0 +1,12 @@
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/bin/Debug/net8.0/JsonSerializerLib.deps.json
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/bin/Debug/net8.0/JsonSerializerLib.dll
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/bin/Debug/net8.0/JsonSerializerLib.pdb
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/JsonSerializerLib.GeneratedMSBuildEditorConfig.editorconfig
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/JsonSerializerLib.AssemblyInfoInputs.cache
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/JsonSerializerLib.AssemblyInfo.cs
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/JsonSerializerLib.csproj.CoreCompileInputs.cache
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/JsonSerializerLib.sourcelink.json
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/JsonSerializerLib.dll
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/refint/JsonSerializerLib.dll
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/JsonSerializerLib.pdb
+/Users/sumaiyarahman/Desktop/c# projects/JsonSerializerLib/JsonSerializerLib/obj/Debug/net8.0/ref/JsonSerializerLib.dll
