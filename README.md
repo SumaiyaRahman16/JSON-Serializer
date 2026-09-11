@@ -1,169 +1,136 @@
 # JsonSerializerLib
 
-A JSON serializer and deserializer built from scratch in C# using reflection.
-No `System.Text.Json`, no `Newtonsoft.Json` — the tokenizer, parser, writer, and
-type-binder are all hand-written.
+A custom JSON serializer and deserializer built from scratch in C# using reflection.
 
-## Solution layout
+It does not use `System.Text.Json`, `Newtonsoft.Json`, or any third-party JSON library for the actual serialization and deserialization.
 
-```
-JsonSerializerLib.sln
-JsonSerializerLib/                 the library
-├── JsonSerializer.cs              public API (Serialize / Deserialize)
+## Project Structure
+
+```text
+JsonSerializerLib/
+├── JsonSerializer.cs       # Main public API
 └── Json/
-    ├── JsonException.cs           exception types
-    ├── JsonTokenizer.cs           text -> tokens
-    ├── JsonNumber.cs              raw-text number wrapper (precision safety)
-    ├── JsonParser.cs              tokens -> generic object graph
-    ├── JsonWriter.cs              object graph -> JSON text (+ cycle detection)
-    ├── JsonBinder.cs              generic graph -> typed .NET object
-    └── ReflectionCache.cs         cached, compiled property accessors
-JsonSerializerLib.Tests/           xUnit tests
-JsonSerializerLib.Benchmark/       before/after performance console app
+    ├── JsonTokenizer.cs    # Breaks JSON into tokens
+    ├── JsonParser.cs       # Parses JSON
+    ├── JsonWriter.cs       # Creates JSON text
+    ├── JsonBinder.cs       # Converts JSON to C# objects
+    ├── JsonNumber.cs       # Handles JSON numbers
+    ├── JsonException.cs    # Custom exceptions
+    └── ReflectionCache.cs  # Improves reflection performance
+
+JsonSerializerLib.Tests/    # Unit tests
+JsonSerializerLib.Benchmark/# Performance tests
 ```
 
 ## Requirements
 
-- .NET 8 SDK. That's it — no NuGet packages are required by the library itself.
-  The test project pulls in `xunit`, `xunit.runner.visualstudio`, and
-  `Microsoft.NET.Test.Sdk` (test-only, not part of the library).
+* .NET 8 SDK
+* No external libraries are required for the main serializer.
 
-## Building and running
+## How to Run
+
+Build the project:
 
 ```bash
 dotnet build
+```
+
+Run the tests:
+
+```bash
 dotnet test
-dotnet run --project JsonSerializerLib.Benchmark
 ```
 
-## Usage
-
-```csharp
-using JsonSerializerLib;
-
-var user = new User { Id = 1, Name = "John", IsActive = true };
-
-string json = JsonSerializer.Serialize(user);
-// {
-//   "Id": 1,
-//   "Name": "John",
-//   "IsActive": true
-// }
-
-string compact = JsonSerializer.Serialize(user, indent: false);
-
-User? back = JsonSerializer.Deserialize<User>(json);
-```
-
-## Supported types
-
-| Category | Types |
-|---|---|
-| Primitives | `string`, `int`, `long`, `short`, `byte`, `sbyte`, `uint`, `ulong`, `ushort`, `float`, `double`, `decimal`, `bool`, `char`, `null` |
-| Objects | any plain class/struct with a public parameterless constructor, discovered via reflection |
-| Collections | arrays (`T[]`), `List<T>`, any generic `IEnumerable<T>` with a compatible constructor, `object[]`/`List<object>` |
-| Dictionaries | `Dictionary<string, TValue>` and other `IDictionary` implementations |
-| Special | `DateTime`, `DateTimeOffset`, `Guid`, `enum`, nullable value types (`int?`, `Guid?`, etc.) |
-
-## Design decisions
-
-- **Two-phase pipeline.** Parsing is split into tokenizing (`JsonTokenizer`),
-  recursive-descent parsing into a generic graph (`JsonParser` — produces
-  `Dictionary<string,object?>`, `List<object?>`, `string`, `JsonNumber`, `bool`,
-  or `null`), and a separate `JsonBinder` that reflects over the *target* .NET
-  type to populate it. Keeping parsing and type-binding independent means the
-  parser doesn't need to know anything about your classes, and the binder
-  doesn't need to know anything about JSON syntax.
-- **`JsonNumber` instead of `double`.** Numbers are kept as raw text until the
-  binder knows the target type, so a JSON number bound to `long` or `decimal`
-  doesn't silently lose precision by round-tripping through `double` first.
-- **Dates** are serialized as ISO-8601 UTC (`"o"` round-trip format) — the
-  closest thing to a JSON date standard.
-- **Enums** are serialized by name (`"High"`), not by ordinal, for
-  readability and resilience to enum-member reordering. Deserialization
-  accepts either the name or the numeric value.
-- **Unknown JSON properties are ignored** during deserialization (matching
-  the permissive behavior of most mainstream JSON libraries) rather than
-  throwing — this lets you deserialize a subset of a larger JSON payload.
-- Property name matching during deserialization is **case-insensitive**.
-
-## Circular references
-
-Detected during serialization using a reference-equality ancestor stack
-(`HashSet<object>` with `ReferenceEqualityComparer`) that's pushed/popped as
-the writer descends into objects, arrays, and dictionaries. If an object is
-encountered that is already one of its own ancestors (direct self-reference
-or an indirect cycle through a chain of objects), it is written as `null`
-instead of being re-visited.
-
-This was chosen over throwing an exception because a single self-referencing
-property shouldn't necessarily fail an entire large serialization — the rest
-of the graph still serializes correctly, and the `null` clearly marks where
-the cycle was cut. This is a **documented trade-off**: if your application
-needs the cycle preserved (e.g. via a `"$ref"` pointer scheme), that's not
-supported here.
-
-## Error handling
-
-- **Malformed JSON** (unterminated strings, invalid escapes, bad numbers,
-  trailing commas, unexpected tokens, unexpected end of input) raises
-  `JsonParseException`, which includes the character position and what was
-  expected, e.g. `Expected ':' but found ','  (at character 14)`.
-- **Type mismatches** during deserialization (e.g. a JSON string where a
-  number is expected, JSON `null` into a non-nullable value type) raise
-  `JsonDeserializationException` naming the expected/actual types and, where
-  applicable, the offending property name.
-- **Reflection failures** (e.g. a property getter throws, a type has no
-  public parameterless constructor) are caught and re-wrapped in
-  `JsonSerializationException` / `JsonDeserializationException` with the
-  original exception preserved as `InnerException`.
-- Nothing is ever silently coerced into a "valid-looking" object — a bind
-  failure always throws rather than guessing.
-
-## Performance
-
-Reflection metadata (`PropertyInfo[]`) and property access are the classic
-hotspots for a reflection-based serializer: `Type.GetProperties()` walks
-metadata tables, and `PropertyInfo.GetValue`/`SetValue` go through a slow,
-boxing reflection-invoke path on every call.
-
-`ReflectionCache` fixes both:
-1. `PropertyInfo[]` is computed once per `Type` and cached in a
-   `ConcurrentDictionary<Type, PropertyAccessor[]>`.
-2. Each property additionally gets a **compiled `Expression` tree** acting as
-   a strongly-typed getter/setter delegate, avoiding `GetValue`/`SetValue`
-   reflection calls entirely after the first hit.
-
-`JsonSerializerLib.Benchmark` measures 200,000 serializations of a 3-property
-object, comparing the cached path against a naive baseline that calls
-`GetProperties()` and `GetValue()` fresh on every iteration (no caching, no
-compiled delegates — this is what a first-draft implementation typically
-looks like). Run it yourself:
+Run the benchmark:
 
 ```bash
 dotnet run --project JsonSerializerLib.Benchmark -c Release
 ```
 
-Typical results look like (numbers vary by machine — replace with your own
-measured run before submitting):
+## Basic Usage
 
-```
-Cached ReflectionCache serializer: ~40 ms for 200,000 iterations
-Naive reflection (no cache):       ~180 ms for 200,000 iterations
+```csharp
+using JsonSerializerLib;
+
+var user = new User
+{
+    Id = 1,
+    Name = "John",
+    IsActive = true
+};
+
+string json = JsonSerializer.Serialize(user);
+
+User? result = JsonSerializer.Deserialize<User>(json);
 ```
 
-i.e. roughly a 4–5x improvement, entirely from removing repeated
-`Type.GetProperties()` calls and replacing `PropertyInfo.GetValue` with a
-compiled delegate.
+## Supported Features
+
+* Primitive types such as `string`, `int`, `double`, `bool`, etc.
+* Classes and structs using reflection
+* Nested objects
+* Arrays and lists
+* Dictionaries
+* `DateTime` and `DateTimeOffset`
+* `Guid`
+* Enums
+* Nullable types
+* Serialization and deserialization
+* Invalid JSON and type-mismatch error handling
+* Circular reference detection
+
+## Design
+
+The serializer uses a simple pipeline:
+
+```text
+C# Object
+    ↓
+JsonWriter
+    ↓
+JSON Text
+```
+
+For deserialization:
+
+```text
+JSON Text
+    ↓
+Tokenizer
+    ↓
+Parser
+    ↓
+JsonBinder
+    ↓
+C# Object
+```
+
+Reflection is used to automatically read and create object properties, so classes do not need special serialization code.
+
+A reflection cache is also used to avoid repeatedly looking up the same property information, improving performance.
+
+## Circular References
+
+Circular references are detected during serialization to prevent infinite loops.
+
+For example:
+
+```text
+Person → Friend → Person
+```
+
+When a cycle is detected, that value is written as `null`.
 
 ## Limitations
 
-- Deserialization targets need a **public parameterless constructor**
-  (records with only a primary constructor aren't supported out of the box).
-- No attribute-based customization (`[JsonIgnore]`, `[JsonPropertyName]`,
-  etc.) — property name and inclusion are purely reflection-driven.
-- No naming-policy conversion (e.g. camelCase output) — property names are
-  written exactly as declared in C#.
-- Circular references are cut to `null` on write, not preserved/restored
-  (see above) — round-tripping a cyclic graph will lose the cycle.
-- Only public instance properties are considered; fields are not serialized.
+* Only public instance properties are serialized.
+* Deserialization requires a public parameterless constructor.
+* Fields are not serialized.
+* Custom attributes such as `[JsonIgnore]` are not supported.
+* Circular references are replaced with `null`.
+
+## Performance
+
+The project includes a benchmark comparing normal reflection with the optimized `ReflectionCache` implementation.
+
+The benchmark should be run before submission so the README can be updated with the actual results from the user's machine.
